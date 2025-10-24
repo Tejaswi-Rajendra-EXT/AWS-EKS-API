@@ -1,0 +1,47 @@
+---
+- name:  Deploy Multitier Application on EKS
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars_files:
+    - ../vars/main.yml
+
+  tasks:
+    - name: Clone GitHub repo containing the app
+      ansible.builtin.git:
+        repo: "{{ repo_url }}"
+        dest: "{{ app_dir }}"
+        version: master
+        force: yes
+
+    - name: Verify manifests are present
+      ansible.builtin.stat:
+        path: "{{ k8s_manifest_path }}"
+      register: manifests_dir
+
+    - name: Fail if manifests directory not found
+      ansible.builtin.fail:
+        msg: "Kubernetes manifests not found at {{ k8s_manifest_path }}"
+      when: not manifests_dir.stat.exists
+
+    - name:  Apply Kubernetes manifests
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ item }}"
+      loop: "{{ lookup('fileglob', k8s_manifest_path + '/*.yaml', wantlist=True) }}"
+
+    - name:  Wait for all Pods to become ready
+      kubernetes.core.k8s_info:
+        kind: Pod
+        namespace: default
+      register: pods_info
+      until: pods_info.resources | selectattr('status.phase', 'equalto', 'Running') | list | length > 0
+      retries: 10
+      delay: 15
+
+    - name: ✅ Display success message
+      ansible.builtin.debug:
+        msg: |
+           Application successfully deployed on EKS!
+           (check using `kubectl get svc`).

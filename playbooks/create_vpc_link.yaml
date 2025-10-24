@@ -1,0 +1,35 @@
+---
+- name: Create VPC Link for API Gateway
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars_files:
+    - ../vars/main.yml
+    - vpc_info.yaml
+    - nlb_info.yaml
+    - updated_sg_info.yaml
+
+  tasks:
+    - name: Create VPC Link
+      shell: >
+        aws apigatewayv2 create-vpc-link
+        --name eks-rsvp-vpclink
+        --subnet-ids {{ subnet_ids }}
+        --security-group-ids {{ sg_ids | join(' ') if sg_ids is iterable else sg_ids }}
+        --region {{ region }}
+        --query 'VpcLinkId' --output text
+      register: vpclink_cmd
+
+    - name: Save VPC Link ID
+      set_fact:
+        vpc_link_id: "{{ vpclink_cmd.stdout }}"
+
+    - name: Save to file
+      copy:
+        content: |
+          vpc_link_id: "{{ vpc_link_id }}"
+        dest: vpc_link_info.yaml
+
+    - debug:
+        msg: "VPC Link created: {{ vpc_link_id }}"

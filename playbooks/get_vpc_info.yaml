@@ -1,0 +1,29 @@
+---
+- name: Get VPC and Subnet Info from EKS
+  hosts: localhost
+  vars_files:
+    - ../vars/main.yml
+  tasks:
+    - name: Get VPC ID
+      shell: >
+        aws eks describe-cluster --name {{ cluster_name }} --region {{ region }}
+        --query "cluster.resourcesVpcConfig.vpcId" --output text
+      register: vpc_id_cmd
+
+    - name: Get Subnet IDs
+      shell: >
+        aws eks describe-cluster --name {{ cluster_name }} --region {{ region }}
+        --query "cluster.resourcesVpcConfig.subnetIds[]" --output text
+      register: subnet_ids_cmd
+
+    - name: Print Results
+      debug:
+        msg:
+          - "VPC ID: {{ vpc_id_cmd.stdout }}"
+          - "Subnets: {{ subnet_ids_cmd.stdout }}"
+    - name: Save VPC and subnet info to a file
+      copy:
+        content: |
+          vpc_id: "{{ vpc_id_cmd.stdout }}"
+          subnet_ids: "{{ subnet_ids_cmd.stdout }}"
+        dest: vpc_info.yaml

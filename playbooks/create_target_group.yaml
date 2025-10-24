@@ -1,0 +1,46 @@
+---
+- name: Create Target Group and Register Nodes
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars_files:
+    - ../vars/main.yml
+    - vpc_info.yaml
+
+  tasks:
+    - name: Create target group
+      community.aws.elb_target_group:
+        name: "{{ tg_name }}"
+        protocol: TCP
+        port: "{{ node_port }}"
+        vpc_id: "{{ vpc_id }}"      # ✅ use directly, no hostvars lookup
+        target_type: instance
+        region: "{{ region }}"
+        state: present
+      register: tg
+
+    - name: Debug TG ARN
+      debug:
+        msg: "Target Group ARN: {{ tg.target_group_arn }}"
+
+    - name: Save TG ARN
+      copy:
+        content: "{{ tg.target_group_arn }}"
+        dest: tg_arn.txt
+
+
+    - name: Register worker nodes to target group
+      shell: |
+        INSTANCE_IDS=$(kubectl get nodes -o jsonpath='{.items[*].spec.providerID}' | sed -E 's@.*/@@g')
+        for i in $INSTANCE_IDS; do
+          aws elbv2 register-targets \
+            --target-group-arn {{ tg.target_group_arn }} \
+            --targets Id=$i,Port={{ node_port }} \
+            --region {{ region }}
+        done
+      register: register_output
+
+    - debug:
+        msg: "Registered instances: {{ register_output.stdout }}"
+

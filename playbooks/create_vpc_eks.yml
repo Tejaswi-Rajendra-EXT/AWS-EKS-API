@@ -1,0 +1,55 @@
+---
+- name: Create VPC and EKS Cluster
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  collections:
+    - amazon.aws
+    - community.aws
+
+  vars_files:
+    - ../vars/main.yml
+
+  tasks:
+  # ------------------------------------------------------
+  #  Create VPC via CloudFormation
+  # ------------------------------------------------------
+    - name: Create EKS VPC using CloudFormation
+      amazon.aws.cloudformation:
+        stack_name: eks-vpc-stack
+        state: present
+        region: "{{ region }}"
+        template_url: "https://amazon-eks.s3.us-west-2.amazonaws.com/cloudformation/2020-10-29/amazon-eks-vpc-sample.yaml"
+        capabilities:
+          - CAPABILITY_IAM
+      register: vpc_output
+
+    - name: Extract VPC details
+      set_fact:
+        subnet_ids: "{{ vpc_output.stack_outputs.SubnetIds.split(',') }}"
+        vpc_id: "{{ vpc_output.stack_outputs.VpcId }}"
+        security_group_id: "{{ vpc_output.stack_outputs.SecurityGroups.split(',') }}"
+
+    - name: Debug VPC Outputs
+      debug:
+        msg:
+          - "VPC ID: {{ vpc_id }}"
+          - "Subnets: {{ subnet_ids }}"
+          - "Security Group: {{ security_group_id }}"
+          - "Region: {{ region }}"
+
+  # ------------------------------------------------------
+  #  Create EKS Cluster
+  # ------------------------------------------------------
+    - name: Create EKS Cluster
+      community.aws.eks_cluster:
+        name: "{{ cluster_name }}"
+        version: "{{ eks_version }}"
+        role_arn: "arn:aws:iam::{{ account_id }}:role/{{ cluster_role_name }}"
+        subnets: "{{ subnet_ids }}"
+        security_groups: "{{ security_group_id }}"
+        region: "{{ region }}"
+        state: present
+        wait: yes
+        wait_timeout: 1200
+      register: eks_cluster

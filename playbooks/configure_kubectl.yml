@@ -1,0 +1,42 @@
+- name: Configure kubectl access
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars_files:
+    - ../vars/main.yml
+
+  tasks:
+    - name: Update kubeconfig
+      ansible.builtin.command:
+        cmd: >
+          aws eks update-kubeconfig
+          --region {{ region }}
+          --name {{ cluster_name }}
+      register: kubeconfig_output
+      changed_when: "'Added new context' in kubeconfig_output.stdout or 'Updated context' in kubeconfig_output.stdout"
+
+    - name: Ensure kubectl is installed
+      become: true
+      block:
+        - name: Download kubectl binary for EKS
+          ansible.builtin.get_url:
+            url: "https://s3.us-west-2.amazonaws.com/amazon-eks/1.29.15/2025-09-19/bin/linux/amd64/kubectl"
+            dest: /usr/local/bin/kubectl
+            mode: '0755'
+            force: yes
+
+        - name: Verify kubectl version
+          ansible.builtin.command: kubectl version --client
+          register: kubectl_version
+          changed_when: false
+
+    - name: Verify connection to EKS cluster
+      ansible.builtin.command: kubectl get nodes
+      register: kubectl_nodes
+      ignore_errors: true
+      changed_when: false
+
+    - name: Debug kubectl output
+      ansible.builtin.debug:
+        var: kubectl_nodes.stdout_lines

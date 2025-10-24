@@ -1,0 +1,55 @@
+---
+- name: Starting EKS Cluster Creation Workflow
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Display start message
+      ansible.builtin.debug:
+        msg: " Beginning EKS cluster setup... this will take a few minutes."
+
+# ------------------------------------------------------------
+
+- name: Create IAM Roles for EKS
+  import_playbook: playbooks/create_iam.yml
+
+- name: Display IAM success message
+  hosts: localhost
+  tasks:
+    - ansible.builtin.debug:
+        msg: " Successfully created required IAM Roles (Cluster + NodeGroup)."
+
+# ------------------------------------------------------------
+
+- name: Create VPC and EKS Cluster
+  import_playbook: playbooks/create_vpc_eks.yml
+
+- name: Display VPC + Cluster success message
+  hosts: localhost
+  tasks:
+    - ansible.builtin.debug:
+        msg: " Successfully created CloudFormation stack (VPC, Subnets, Security Groups) and EKS Cluster."
+
+# ------------------------------------------------------------
+
+- name: Create EKS Node Groups
+  import_playbook: playbooks/create_nodes.yml
+
+- name: Display NodeGroup success message
+  hosts: localhost
+  tasks:
+    - ansible.builtin.debug:
+        msg: " EKS Node Group successfully created and ACTIVE."
+
+# ------------------------------------------------------------
+
+- name: Configure kubectl Access
+  import_playbook: playbooks/configure_kubectl.yml
+
+- name: Display final success message
+  hosts: localhost
+  tasks:
+    - ansible.builtin.debug:
+        msg: |
+           EKS setup completed successfully!
+           Cluster is ready to use.

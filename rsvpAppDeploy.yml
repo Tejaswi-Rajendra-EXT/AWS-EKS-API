@@ -1,0 +1,31 @@
+---
+- name:  Begin Multi-Tier App Deployment
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Display start message
+      ansible.builtin.debug:
+        msg: |
+           Starting deployment of rsvp Application on EKS cluster...
+           This will clone the GitHub repository and apply all Kubernetes manifests.
+
+# -------------------------------------------------------------------
+
+- name: Deploy Application on EKS Cluster
+  import_playbook: playbooks/deploy_app.yml
+
+# -------------------------------------------------------------------
+
+- name:  Confirm Successful Deployment
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Display success message
+      ansible.builtin.debug:
+        msg: |
+           Multi-Tier Application successfully deployed on Amazon EKS!
+           Verify the deployment with:
+              kubectl get pods
+              kubectl get svc

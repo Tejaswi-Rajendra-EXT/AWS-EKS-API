@@ -1,0 +1,2 @@
+nlb_arn: "arn:aws:elasticloadbalancing:ap-south-1:107282186723:loadbalancer/net/rsvp-eks-nlb-1/f90f4d6e302da180"
+listener_arn: "arn:aws:elasticloadbalancing:ap-south-1:107282186723:listener/net/rsvp-eks-nlb-1/f90f4d6e302da180/df112cc31ecfa923"

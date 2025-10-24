@@ -1,0 +1,67 @@
+---
+- name: Starting Application Exposure via API Gateway Workflow
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tasks:
+    - name: Display start message
+      ansible.builtin.debug:
+        msg: " Beginning process to expose EKS application through AWS API Gateway..."
+
+# ------------------------------------------------------------
+
+- name: Get VPC Information
+  import_playbook: playbooks/get_vpc_info.yaml
+
+- name: Display VPC success message
+  hosts: localhost
+  tasks:
+    - ansible.builtin.debug:
+        msg: " Successfully fetched VPC information."
+
+# ------------------------------------------------------------
+
+- name: Create Target Group
+  import_playbook: playbooks/create_target_group.yaml
+
+- name: Display Target Group success message
+  hosts: localhost
+  tasks:
+    - ansible.builtin.debug:
+        msg: " Target group created successfully and ready for NLB registration."
+
+# ------------------------------------------------------------
+
+- name: Create Network Load Balancer
+  import_playbook: playbooks/create_nlb.yaml
+
+- name: Display NLB success message
+  hosts: localhost
+  tasks:
+    - ansible.builtin.debug:
+        msg: " NLB and listeners successfully created."
+
+# ------------------------------------------------------------
+
+- name: Create VPC Link
+  import_playbook: playbooks/create_vpc_link.yaml
+
+- name: Display VPC Link success message
+  hosts: localhost
+  tasks:
+    - ansible.builtin.debug:
+        msg: " VPC Link successfully created for API Gateway integration."
+
+# ------------------------------------------------------------
+
+- name: Create API Gateway and Integration
+  import_playbook: playbooks/create_api_gateway.yaml
+
+- name: Display API Gateway success message
+  hosts: localhost
+  tasks:
+    - ansible.builtin.debug:
+        msg: |
+           Application successfully exposed via API Gateway!
+           You can now access the app through the generated Invoke URL.
+

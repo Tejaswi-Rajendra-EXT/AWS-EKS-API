@@ -1,0 +1,48 @@
+- name: Create Node Group
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  collections:
+    - community.aws
+    - amazon.aws
+
+  vars_files:
+    - ../vars/main.yml
+
+  tasks:
+    - name: Get subnet IDs from CloudFormation stack
+      amazon.aws.cloudformation_info:
+        stack_name: eks-vpc-stack
+        region: "{{ region }}"
+      register: vpc_stack_info
+
+    - name: Extract and split subnet IDs from stack outputs
+      set_fact:
+        subnet_ids: "{{ vpc_stack_info.cloudformation['eks-vpc-stack'].stack_outputs.SubnetIds.split(',') | map('trim') | list }}"
+
+    - name: Debug subnet IDs (optional)
+      debug:
+        var: subnet_ids
+
+    - name: Create EKS Node Group
+      community.aws.eks_nodegroup:
+        name: "{{ nodegroup_name }}"
+        cluster_name: "{{ cluster_name }}"
+        node_role: "{{ node_role_arn }}"
+        subnets: "{{ subnet_ids }}"
+        scaling_config:
+          min_size: 2
+          desired_size: 2
+          max_size: 3
+        instance_types:
+          - "t3.micro"
+        capacity_type: ON_DEMAND
+        region: "{{ region }}"
+        state: present
+        wait: yes
+        wait_timeout: 1200
+      register: nodegroup_info
+
+    - name: Show Nodegroup details
+      debug:
+        var: nodegroup_info

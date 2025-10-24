@@ -1,0 +1,28 @@
+region: ap-south-1
+cluster_name: rsvp-eks-cluster
+nodegroup_name: rsvp-eks-nodes
+eks_version: "1.29"
+
+# Replace with your account ID
+account_id: "107282186723"
+
+# Roles (will be created)
+cluster_role_name: rsvp-eks-cluster-role-1
+node_role_name: rsvp-eks-nodegroup-role-1
+
+node_role_arn: arn:aws:iam::260727659106:role/rsvp-eks-nodegroup-role
+
+
+#For application deployment, clone the github repository
+repo_url: "https://github.com/Tejaswi-Rajendra-EXT/k8s-multi-tier-AWS.git"
+app_dir: "/tmp/k8s-multi-tier-AWS"
+k8s_manifest_path: "{{ app_dir }}/k8s"
+
+#
+node_port: 30080
+tg_name: rsvp-eks-tg-1
+nlb_name: rsvp-eks-nlb-1
+vpc_link_name: rsvp-eks-vpclink-1
+api_name: rsvp-eks-api-1
+
+listener_port: 80

@@ -1,0 +1,71 @@
+---
+- name: Create API Gateway and Integrate with NLB
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars_files:
+    - ../vars/main.yml
+    - vpc_link_info.yaml
+    - nlb_info.yaml
+
+  tasks:
+    - name: Create API Gateway
+      shell: >
+        aws apigatewayv2 create-api
+        --name rsvp-eks-api
+        --protocol-type HTTP
+        --region {{ region }}
+        --query 'ApiId' --output text
+      register: api_id_cmd
+
+    - set_fact:
+        api_id: "{{ api_id_cmd.stdout }}"
+
+    - name: Create Integration
+      shell: >
+        aws apigatewayv2 create-integration
+        --api-id {{ api_id }}
+        --integration-type HTTP_PROXY
+        --integration-method ANY
+        --integration-uri {{ listener_arn }}
+        --connection-type VPC_LINK
+        --connection-id {{ vpc_link_id }}
+        --payload-format-version "1.0"
+        --region {{ region }}
+        --query 'IntegrationId' --output text
+      register: integration_cmd
+
+    - set_fact:
+        integration_id: "{{ integration_cmd.stdout }}"
+
+    - name: Create Route
+      shell: >
+        aws apigatewayv2 create-route
+        --api-id {{ api_id }}
+        --route-key "ANY /{proxy+}"
+        --target integrations/{{ integration_id }}
+        --region {{ region }}
+
+    - name: Create Stage
+      shell: >
+        aws apigatewayv2 create-stage
+        --api-id {{ api_id }}
+        --stage-name '$default'
+        --auto-deploy
+        --region {{ region }}
+
+    - name: Get Endpoint
+      shell: >
+        aws apigatewayv2 get-api
+        --api-id {{ api_id }}
+        --region {{ region }}
+        --query 'ApiEndpoint' --output text
+      register: endpoint_cmd
+
+    - set_fact:
+        api_endpoint: "{{ endpoint_cmd.stdout }}"
+
+    - debug:
+        msg: "Invoke your API at: {{ api_endpoint }}"
+

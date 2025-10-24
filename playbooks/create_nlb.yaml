@@ -1,0 +1,93 @@
+---
+- name: Create NLB and Listener for EKS App
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  vars_files:
+    - ../vars/main.yml
+    - vpc_info.yaml
+
+  tasks:
+    - name: Create Network Load Balancer
+      shell: >
+        aws elbv2 create-load-balancer
+        --name {{ nlb_name }}
+        --type network
+        --scheme internal
+        --subnets {{ subnet_ids }}
+        --region {{ region }}
+        --query 'LoadBalancers[0].LoadBalancerArn' --output text
+      register: nlb_arn_cmd
+
+    - name: Save NLB ARN
+      set_fact:
+        nlb_arn: "{{ nlb_arn_cmd.stdout }}"
+
+    - debug:
+        msg: "NLB ARN: {{ nlb_arn }}"
+
+    - name: Create Listener for NLB
+      shell: >
+        aws elbv2 create-listener
+        --load-balancer-arn {{ nlb_arn }}
+        --protocol TCP
+        --port {{ listener_port }}
+        --default-actions Type=forward,TargetGroupArn={{ lookup('pipe', 'cat tg_arn.txt') }}
+        --region {{ region }}
+        --query 'Listeners[0].ListenerArn' --output text
+      register: listener_arn_cmd
+
+    - name: Save NLB and Listener info to file
+      copy:
+        content: |
+          nlb_arn: "{{ nlb_arn }}"
+          listener_arn: "{{ listener_arn_cmd.stdout }}"
+        dest: nlb_info.yaml
+
+    - debug:
+        msg:
+          - "NLB ARN: {{ nlb_arn }}"
+          - "Listener ARN: {{ listener_arn_cmd.stdout }}"
+
+
+    - name: Update security groups for EKS nodes
+      shell: |
+        set -e
+        INSTANCE_IDS=$(kubectl get nodes -o jsonpath='{.items[*].spec.providerID}' | sed -E 's@.*/@@g')
+        echo "Found instance IDs: $INSTANCE_IDS" >&2
+
+        SG_IDS=$(aws ec2 describe-instances --instance-ids $INSTANCE_IDS --region {{ region }} \
+          --query 'Reservations[].Instances[].SecurityGroups[].GroupId' --output text)
+        echo "Found security groups: $SG_IDS" >&2
+
+        VPC_CIDR=$(aws ec2 describe-vpcs --vpc-ids {{ vpc_id }} --region {{ region }} \
+          --query 'Vpcs[0].CidrBlock' --output text)
+        echo "VPC CIDR: $VPC_CIDR" >&2
+
+        for sg in $SG_IDS; do
+          aws ec2 authorize-security-group-ingress \
+            --group-id $sg --protocol tcp --port {{ node_port }} --cidr $VPC_CIDR \
+            --region {{ region }} || true
+        done
+
+        # Send SG IDs to Ansible stdout
+        echo $SG_IDS
+      register: sg_update
+      changed_when: false
+
+    - name: Save updated SG details
+      set_fact:
+        sg_ids: "{{ sg_update.stdout.split() }}"
+
+    - name: Save updated SG info to file
+      copy:
+        content: |
+          sg_ids: {{ sg_ids | join(' ') }}
+        dest: updated_sg_info.yaml
+
+    - debug:
+        msg:
+          - "Security group update completed for NodePort {{ node_port }}"
+          - "SG IDs: {{ sg_ids }}"
+

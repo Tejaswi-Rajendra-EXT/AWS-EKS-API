@@ -1,0 +1,5 @@
+subnet_ids:
+  - subnet-0ace6fe307ce61038
+  - subnet-0d3ae2c9b48c19167
+vpc_id: vpc-0bd9a94ec143fb7d8
+security_group_id: sg-02a178bd75112b67e
